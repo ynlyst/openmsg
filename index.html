@@ -1,0 +1,193 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Genesys Open Messaging Tester</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f1f5f9;
+      color: #1e293b;
+      max-width: 850px;
+      margin: 30px auto;
+      padding: 20px;
+    }
+    h1 { color: #123456; }
+    .card {
+      background: white;
+      padding: 22px;
+      margin: 18px 0;
+      border-radius: 12px;
+      box-shadow: 0 2px 8px #00000010;
+    }
+    label {
+      display: block;
+      font-weight: bold;
+      margin: 14px 0 6px;
+    }
+    input, textarea {
+      box-sizing: border-box;
+      width: 100%;
+      padding: 11px;
+      border: 1px solid #cbd5e1;
+      border-radius: 6px;
+      font: inherit;
+    }
+    textarea { min-height: 110px; }
+    button {
+      background: #123456;
+      color: white;
+      border: 0;
+      padding: 11px 17px;
+      border-radius: 6px;
+      cursor: pointer;
+      margin: 10px 5px 0 0;
+    }
+    button:hover { background: #245580; }
+    pre {
+      white-space: pre-wrap;
+      overflow-wrap: anywhere;
+      background: #0f172a;
+      color: #d1fae5;
+      padding: 15px;
+      border-radius: 7px;
+    }
+    .note { color: #475569; font-size: 14px; }
+  </style>
+</head>
+<body>
+  <h1>Genesys Cloud Open Messaging</h1>
+  <p>Webhook testing console</p>
+
+  <div class="card">
+    <h2>1. Webhook Endpoint</h2>
+    <label for="url">Webhook.site URL</label>
+    <input id="url"
+      placeholder="https://webhook.site/your-unique-id">
+
+    <p class="note">
+      Use your unique URL from Webhook.site.
+      Enable CORS there to allow browser requests.
+    </p>
+  </div>
+
+  <div class="card">
+    <h2>2. Send a Test Message</h2>
+    <label for="message">Customer message</label>
+    <input id="message" value="Hello, I need help with my account">
+
+    <label for="conversation">Test conversation ID</label>
+    <input id="conversation" value="test-conversation-001">
+
+    <button onclick="sendMessage()">Send Test POST</button>
+
+    <label>Request JSON</label>
+    <pre id="payload"></pre>
+
+    <label>HTTP result</label>
+    <pre id="result">Ready to test.</pre>
+  </div>
+
+  <div class="card">
+    <h2>3. Generate a Secret Token</h2>
+    <p class="note">
+      Generate a random secret for your Genesys Cloud
+      Open Messaging integration. Keep it private.
+    </p>
+    <button onclick="generateToken()">Generate Secret</button>
+    <input id="secret" readonly placeholder="Click Generate Secret">
+    <button onclick="copyToken()">Copy Secret</button>
+    <p class="note">
+      This only generates a secret in your browser.
+      It does not validate webhook signatures.
+    </p>
+  </div>
+
+  <script>
+    function getPayload() {
+      return {
+        event: "customer.message",
+        conversationId:
+          document.getElementById("conversation").value,
+        message: {
+          type: "Text",
+          text: document.getElementById("message").value
+        },
+        source: "github-pages-test",
+        timestamp: new Date().toISOString()
+      };
+    }
+
+    function showPayload() {
+      document.getElementById("payload").textContent =
+        JSON.stringify(getPayload(), null, 2);
+    }
+
+    async function sendMessage() {
+      const url = document.getElementById("url").value.trim();
+      const result = document.getElementById("result");
+
+      showPayload();
+
+      if (!url.startsWith("https://")) {
+        result.textContent = "Please enter a valid HTTPS webhook URL.";
+        return;
+      }
+
+      result.textContent = "Sending request...";
+
+      try {
+        const response = await fetch(url, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify(getPayload())
+        });
+
+        const body = await response.text();
+        result.textContent =
+          "HTTP Status: " + response.status +
+          "\nResponse:\n" + body;
+      } catch (error) {
+        result.textContent =
+          "Request failed: " + error.message +
+          "\nCheck the URL and enable CORS on the test endpoint.";
+      }
+    }
+
+    async function generateToken() {
+      const bytes = new Uint8Array(32);
+      crypto.getRandomValues(bytes);
+      const token = Array.from(bytes)
+        .map(b => b.toString(16).padStart(2, "0"))
+        .join("");
+      document.getElementById("secret").value = token;
+    }
+
+    async function copyToken() {
+      const token = document.getElementById("secret").value;
+      if (!token) {
+        alert("Generate a secret first.");
+        return;
+      }
+      try {
+        await navigator.clipboard.writeText(token);
+        alert("Secret copied.");
+      } catch {
+        document.getElementById("secret").select();
+        alert("Select and copy the secret manually.");
+      }
+    }
+
+    document.getElementById("message")
+      .addEventListener("input", showPayload);
+    document.getElementById("conversation")
+      .addEventListener("input", showPayload);
+
+    showPayload();
+  </script>
+</body>
+</html>
